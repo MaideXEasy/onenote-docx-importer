@@ -485,6 +485,13 @@
 
     // Warten bis Office.js vollständig bereit ist
     const officeLoaded = await window._officeReady;
+    
+    // Debug-Info
+    log('info', 'Office geladen: ' + officeLoaded);
+    log('info', 'Host: ' + (typeof Office !== 'undefined' ? JSON.stringify(Office.context && Office.context.host) : 'Office undefined'));
+    log('info', 'OneNote: ' + (typeof OneNote));
+    log('info', 'OneNote.run: ' + (typeof OneNote !== 'undefined' ? typeof OneNote.run : 'n/a'));
+
     if (!officeLoaded || typeof OneNote === 'undefined') {
       log('err', 'OneNote API nicht verfügbar. Bitte Add-in schließen und neu öffnen.');
       btn.disabled = false;
