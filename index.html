@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Docx Importer</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -479,7 +480,7 @@
       log('info', pageName + ' ...');
 
       try {
-        const content = await readDocxAsText(file);
+        const htmlContent = await readDocxAsText(file);
 
         await OneNote.run(async context => {
           const section = context.application.getActiveSection();
@@ -488,9 +489,7 @@
 
           const newPage = section.addPage();
           newPage.title = pageName;
-
-          const html = `<html><body><p>${content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p></body></html>`;
-          newPage.addOutline(10, 80, html);
+          newPage.addOutline(10, 80, htmlContent);
 
           await context.sync();
         });
@@ -513,47 +512,18 @@
   async function readDocxAsText(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = e => {
-        // Einfache Text-Extraktion aus docx (ZIP-Struktur)
+      reader.onload = async e => {
         try {
-          const binary = e.target.result;
-          // docx ist ein ZIP — wir lesen den Rohtext
-          // Suche nach dem word/document.xml Inhalt
-          const text = extractTextFromDocx(binary);
-          resolve(text);
+          const arrayBuffer = e.target.result;
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          resolve(result.value || '(Leeres Dokument)');
         } catch(err) {
-          resolve('(Inhalt konnte nicht gelesen werden)');
+          resolve('(Inhalt konnte nicht gelesen werden: ' + err.message + ')');
         }
       };
       reader.onerror = reject;
-      reader.readAsBinaryString(file);
+      reader.readAsArrayBuffer(file);
     });
-  }
-
-  function extractTextFromDocx(binary) {
-    // Einfache Textextraktion: XML-Tags entfernen aus word/document.xml
-    // Suche nach dem Beginn von document.xml im ZIP
-    const marker = 'word/document.xml';
-    const idx = binary.indexOf(marker);
-    if (idx === -1) return '(Inhalt nicht gefunden)';
-
-    // Rohinhalt nach dem Marker
-    const chunk = binary.substring(idx + marker.length, idx + marker.length + 500000);
-
-    // XML-Tags entfernen, nur Text behalten
-    let text = chunk
-      .replace(/<w:t[^>]*>/g, ' ')
-      .replace(/<\/w:t>/g, '')
-      .replace(/<w:p[^>]*>/g, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/\s{3,}/g, '\n\n')
-      .trim();
-
-    return text || '(Leeres Dokument)';
   }
 </script>
 </body>
