@@ -17,7 +17,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://https://teamlizzy.me/onenote-docx-importer/index.html"/>
+    <SourceLocation DefaultValue="https://teamlizzy.me/onenote-docx-importer/index.html"/>
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
