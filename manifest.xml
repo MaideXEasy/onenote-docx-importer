@@ -17,7 +17,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://DEIN-USERNAME.github.io/onenote-docx-importer/index.html"/>
+    <SourceLocation DefaultValue="https://MaideXEasy.github.io/onenote-docx-importer/index.html"/>
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
