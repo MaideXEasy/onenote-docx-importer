@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Docx Importer</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f12;
+      --surface: #1a1a20;
+      --border: #2a2a35;
+      --accent: #7c6af7;
+      --accent-dim: #3d3568;
+      --text: #e8e6f0;
+      --text-dim: #7a7890;
+      --success: #4ade80;
+      --error: #f87171;
+      --warning: #fbbf24;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px 16px;
+      font-size: 13px;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 11px;
+      margin-bottom: 24px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--surface);
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: #1e1c2e;
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .drop-text {
+      color: var(--text-dim);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .drop-text strong {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .file-list {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .file-list.visible { display: block; }
+
+    .file-list-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .file-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+    }
+
+    .clear-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+      font-family: 'DM Sans', sans-serif;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .clear-btn:hover { color: var(--error); }
+
+    .file-item {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .file-item:last-child { border-bottom: none; }
+
+    .file-item .file-name {
+      flex: 1;
+      font-family: 'DM Mono', monospace;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-item .file-path {
+      color: var(--text-dim);
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100px;
+    }
+
+    .file-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .file-status.pending { background: var(--border); }
+    .file-status.importing { background: var(--warning); animation: pulse 1s infinite; }
+    .file-status.done { background: var(--success); }
+    .file-status.error { background: var(--error); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .options {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .option-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .option-row:last-child { margin-bottom: 0; }
+
+    .option-label {
+      font-size: 12px;
+      color: var(--text);
+    }
+    .option-desc {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+
+    .toggle {
+      width: 36px;
+      height: 20px;
+      background: var(--border);
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: white;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: left 0.2s;
+    }
+    .toggle.on::after { left: 19px; }
+
+    .import-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+      margin-bottom: 12px;
+    }
+
+    .import-btn:hover:not(:disabled) { background: #6a59e0; transform: translateY(-1px); }
+    .import-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .progress-bar.visible { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .log {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      max-height: 120px;
+      overflow-y: auto;
+      display: none;
+      line-height: 1.7;
+    }
+    .log.visible { display: block; }
+    .log .log-ok { color: var(--success); }
+    .log .log-err { color: var(--error); }
+    .log .log-info { color: var(--accent); }
+
+    .info-box {
+      background: #1c1a2e;
+      border: 1px solid var(--accent-dim);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-top: 12px;
+    }
+    .info-box strong { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<h1>📄 Docx Importer</h1>
+<div class="subtitle">→ OneNote Seiten-Import</div>
+
+<div class="section-label">Dateien auswählen</div>
+<div class="drop-zone" id="dropZone">
+  <input type="file" id="fileInput" multiple accept=".docx" />
+  <span class="drop-icon">📁</span>
+  <div class="drop-text">
+    <strong>Klicken</strong> oder Dateien hierher ziehen<br>
+    Mehrere .docx Dateien gleichzeitig möglich
+  </div>
+</div>
+
+<div class="file-list" id="fileList">
+  <div class="file-list-header">
+    <span class="file-count" id="fileCount">0 Dateien</span>
+    <button class="clear-btn" onclick="clearFiles()">✕ leeren</button>
+  </div>
+  <div id="fileItems"></div>
+</div>
+
+<div class="section-label">Optionen</div>
+<div class="options">
+  <div class="option-row">
+    <div>
+      <div class="option-label">Dateiname als Seitentitel</div>
+      <div class="option-desc">z.B. "Protokoll_2024.docx" → "Protokoll 2024"</div>
+    </div>
+    <div class="toggle on" id="toggleTitle" onclick="this.classList.toggle('on')"></div>
+  </div>
+  <div class="option-row">
+    <div>
+      <div class="option-label">Inhalt als formatierten Text</div>
+      <div class="option-desc">Überschriften und Formatierung beibehalten</div>
+    </div>
+    <div class="toggle on" id="toggleFormat" onclick="this.classList.toggle('on')"></div>
+  </div>
+</div>
+
+<button class="import-btn" id="importBtn" onclick="startImport()" disabled>
+  Import starten
+</button>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="log" id="log"></div>
+
+<div class="info-box">
+  <strong>Hinweis:</strong> Die Dateien werden in den aktuell geöffneten Abschnitt importiert. Wechsle in OneNote vorher zum gewünschten Abschnitt.
+</div>
+
+<script>
+  let selectedFiles = [];
+  let fileStatuses = {};
+
+  Office.onReady(function(info) {
+    if (info.host === Office.HostType.OneNote) {
+      log('info', 'Add-in geladen ✓');
+    }
+  });
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles(Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.docx')));
+  });
+
+  fileInput.addEventListener('change', () => {
+    addFiles(Array.from(fileInput.files));
+    fileInput.value = '';
+  });
+
+  function addFiles(files) {
+    files.forEach(f => {
+      if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+        selectedFiles.push(f);
+        fileStatuses[f.name] = 'pending';
+      }
+    });
+    renderFileList();
+  }
+
+  function clearFiles() {
+    selectedFiles = [];
+    fileStatuses = {};
+    renderFileList();
+  }
+
+  function renderFileList() {
+    const list = document.getElementById('fileList');
+    const items = document.getElementById('fileItems');
+    const count = document.getElementById('fileCount');
+    const btn = document.getElementById('importBtn');
+
+    if (selectedFiles.length === 0) {
+      list.classList.remove('visible');
+      btn.disabled = true;
+      return;
+    }
+
+    list.classList.add('visible');
+    btn.disabled = false;
+    count.textContent = selectedFiles.length + ' Datei' + (selectedFiles.length !== 1 ? 'en' : '');
+
+    items.innerHTML = selectedFiles.map((f, i) => `
+      <div class="file-item" id="item-${i}">
+        <div class="file-status ${fileStatuses[f.name] || 'pending'}" id="status-${i}"></div>
+        <div class="file-name">${f.name.replace('.docx', '')}</div>
+        <div class="file-path">${formatSize(f.size)}</div>
+      </div>
+    `).join('');
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function setFileStatus(index, status) {
+    const el = document.getElementById('status-' + index);
+    if (el) { el.className = 'file-status ' + status; }
+  }
+
+  function log(type, msg) {
+    const logEl = document.getElementById('log');
+    logEl.classList.add('visible');
+    const line = document.createElement('div');
+    line.className = 'log-' + type;
+    const prefix = type === 'ok' ? '✓' : type === 'err' ? '✗' : '→';
+    line.textContent = prefix + ' ' + msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progressBar').classList.add('visible');
+    document.getElementById('progressFill').style.width = pct + '%';
+  }
+
+  async function startImport() {
+    if (selectedFiles.length === 0) return;
+
+    const btn = document.getElementById('importBtn');
+    btn.disabled = true;
+    btn.textContent = 'Importiere...';
+
+    const useTitle = document.getElementById('toggleTitle').classList.contains('on');
+    const useFormat = document.getElementById('toggleFormat').classList.contains('on');
+
+    let done = 0;
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      const pageName = useTitle
+        ? file.name.replace('.docx', '').replace(/[_-]/g, ' ')
+        : file.name.replace('.docx', '');
+
+      setFileStatus(i, 'importing');
+      log('info', pageName + ' ...');
+
+      try {
+        const content = await readDocxAsText(file);
+        await OneNote.run(async context => {
+          const page = context.application.getActivePage();
+          await context.sync();
+
+          // Neue Seite nach aktueller einfügen
+          const section = page.parentSection;
+          const newPage = section.addPage();
+          newPage.title = pageName;
+
+          // Inhalt als HTML einfügen
+          const html = useFormat
+            ? `<html><body><p>${content.replace(/\n/g, '</p><p>')}</p></body></html>`
+            : `<html><body><p>${content}</p></body></html>`;
+
+          newPage.addOutline(10, 80, html);
+          await context.sync();
+        });
+
+        setFileStatus(i, 'done');
+        log('ok', pageName);
+      } catch (err) {
+        setFileStatus(i, 'error');
+        log('err', pageName + ': ' + err.message);
+      }
+
+      done++;
+      setProgress(Math.round((done / selectedFiles.length) * 100));
+    }
+
+    btn.textContent = '✓ Import abgeschlossen';
+    log('ok', 'Fertig! ' + done + ' Seiten importiert.');
+  }
+
+  async function readDocxAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        // Einfache Text-Extraktion aus docx (ZIP-Struktur)
+        try {
+          const binary = e.target.result;
+          // docx ist ein ZIP — wir lesen den Rohtext
+          // Suche nach dem word/document.xml Inhalt
+          const text = extractTextFromDocx(binary);
+          resolve(text);
+        } catch(err) {
+          resolve('(Inhalt konnte nicht gelesen werden)');
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsBinaryString(file);
+    });
+  }
+
+  function extractTextFromDocx(binary) {
+    // Einfache Textextraktion: XML-Tags entfernen aus word/document.xml
+    // Suche nach dem Beginn von document.xml im ZIP
+    const marker = 'word/document.xml';
+    const idx = binary.indexOf(marker);
+    if (idx === -1) return '(Inhalt nicht gefunden)';
+
+    // Rohinhalt nach dem Marker
+    const chunk = binary.substring(idx + marker.length, idx + marker.length + 500000);
+
+    // XML-Tags entfernen, nur Text behalten
+    let text = chunk
+      .replace(/<w:t[^>]*>/g, ' ')
+      .replace(/<\/w:t>/g, '')
+      .replace(/<w:p[^>]*>/g, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/\s{3,}/g, '\n\n')
+      .trim();
+
+    return text || '(Leeres Dokument)';
+  }
+</script>
+</body>
+</html>
