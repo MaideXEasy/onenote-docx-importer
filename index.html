@@ -4,30 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Docx Importer</title>
-  <script>
-    // Office.js sicher laden
-    function loadScript(src) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-    window._officeReady = new Promise(async (resolve) => {
-      try {
-        await loadScript('https://appsforoffice.microsoft.com/lib/1/hosted/office.js');
-        if (typeof Office !== 'undefined') {
-          Office.onReady(() => resolve(true));
-        } else {
-          resolve(false);
-        }
-      } catch(e) {
-        resolve(false);
-      }
-    });
-  </script>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -382,10 +359,15 @@
   let selectedFiles = [];
   let fileStatuses = {};
 
-  Office.onReady(function(info) {
-    if (info.host === Office.HostType.OneNote) {
-      log('info', 'Add-in geladen ✓');
-    }
+  // Office.js ist per script-tag geladen, onReady abwarten
+  window._officeReady = new Promise(resolve => {
+    Office.onReady(info => {
+      resolve(info);
+    });
+  });
+
+  window._officeReady.then(info => {
+    log('info', 'Add-in geladen ✓ Host: ' + JSON.stringify(info.host));
   });
 
   const dropZone = document.getElementById('dropZone');
@@ -484,15 +466,15 @@
     let done = 0;
 
     // Warten bis Office.js vollständig bereit ist
-    const officeLoaded = await window._officeReady;
-    
+    const info = await window._officeReady;
+
     // Debug-Info
-    log('info', 'Office geladen: ' + officeLoaded);
-    log('info', 'Host: ' + (typeof Office !== 'undefined' ? JSON.stringify(Office.context && Office.context.host) : 'Office undefined'));
+    log('info', 'Office geladen: true');
+    log('info', 'Host: ' + JSON.stringify(info.host));
     log('info', 'OneNote: ' + (typeof OneNote));
     log('info', 'OneNote.run: ' + (typeof OneNote !== 'undefined' ? typeof OneNote.run : 'n/a'));
 
-    if (!officeLoaded || typeof OneNote === 'undefined') {
+    if (typeof OneNote === 'undefined' || typeof OneNote.run === 'undefined') {
       log('err', 'OneNote API nicht verfügbar. Bitte Add-in schließen und neu öffnen.');
       btn.disabled = false;
       btn.textContent = 'Import starten';
