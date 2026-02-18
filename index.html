@@ -456,14 +456,23 @@
     btn.textContent = 'Importiere...';
 
     const useTitle = document.getElementById('toggleTitle').classList.contains('on');
-    const useFormat = document.getElementById('toggleFormat').classList.contains('on');
 
     let done = 0;
+
+    // Warten bis Office.js vollständig bereit ist
+    await Office.onReady();
+
+    if (typeof OneNote === 'undefined') {
+      log('err', 'OneNote API nicht verfügbar. Bitte Add-in schließen und neu öffnen.');
+      btn.disabled = false;
+      btn.textContent = 'Import starten';
+      return;
+    }
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       const pageName = useTitle
-        ? file.name.replace('.docx', '').replace(/[_-]/g, ' ')
+        ? file.name.replace('.docx', '').replace(/[_\-]/g, ' ')
         : file.name.replace('.docx', '');
 
       setFileStatus(i, 'importing');
@@ -471,21 +480,18 @@
 
       try {
         const content = await readDocxAsText(file);
+
         await OneNote.run(async context => {
-          const page = context.application.getActivePage();
+          const section = context.application.getActiveSection();
+          section.load('id');
           await context.sync();
 
-          // Neue Seite nach aktueller einfügen
-          const section = page.parentSection;
           const newPage = section.addPage();
           newPage.title = pageName;
 
-          // Inhalt als HTML einfügen
-          const html = useFormat
-            ? `<html><body><p>${content.replace(/\n/g, '</p><p>')}</p></body></html>`
-            : `<html><body><p>${content}</p></body></html>`;
-
+          const html = `<html><body><p>${content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p></body></html>`;
           newPage.addOutline(10, 80, html);
+
           await context.sync();
         });
 
