@@ -501,7 +501,10 @@
 
           const newPage = section.addPage();
           newPage.title = pageName;
-          newPage.addOutline(10, 80, htmlContent);
+
+          if (htmlContent && htmlContent.trim().length > 0) {
+            newPage.addOutline(10, 80, htmlContent);
+          }
 
           await context.sync();
         });
@@ -528,12 +531,13 @@
         try {
           const arrayBuffer = e.target.result;
           const result = await mammoth.convertToHtml({ arrayBuffer });
-          resolve(result.value || '(Leeres Dokument)');
+          const html = result && result.value ? result.value : '';
+          resolve(html);
         } catch(err) {
-          resolve('(Inhalt konnte nicht gelesen werden: ' + err.message + ')');
+          resolve('');
         }
       };
-      reader.onerror = reject;
+      reader.onerror = () => resolve('');
       reader.readAsArrayBuffer(file);
     });
   }
