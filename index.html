@@ -484,9 +484,12 @@
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
+      if (!file || !file.name) continue;
+
+      const baseName = file.name.replace(/\.docx$/i, '');
       const pageName = useTitle
-        ? file.name.replace('.docx', '').replace(/[_\-]/g, ' ')
-        : file.name.replace('.docx', '');
+        ? baseName.replace(/[_\-]/g, ' ')
+        : baseName;
 
       setFileStatus(i, 'importing');
       log('info', pageName + ' ...');
